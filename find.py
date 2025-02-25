@@ -6,6 +6,15 @@ import time
 visited = set()
 
 start_url = "https://aloghesti.com/"
+exclude_paths = [
+    "shop/",
+    "cart/",
+    "checkout/",
+    "my-account/",
+    "wp-admin/",
+    "wp-content/",
+    "wp-includes/",
+]
 
 def clean_url(url):
     """ Remove query parameters from the URL and return the clean URL """
@@ -35,14 +44,26 @@ def get_links(url):
         print(f"Request failed for {url}: {e}")
         return []
 
+def should_exclude(url):
+    """ Check if a URL should be excluded based on the exclude_paths list """
+    for path in exclude_paths:
+        if path in url:
+            print(f"Ignoring URL: {url} (matches exclusion pattern: {path})")
+            return True
+    return False
+
 def crawl_website(url):
     """ Recursively crawl the website and collect all unique links """
     global visited
     if url in visited:
         return
 
-    if url.startswith(start_url + "shop/"):
-        print(f"Ignoring shop URL: {url}")
+    if should_exclude(url):
+        return
+
+    parsed_url = urlparse(url)
+    if parsed_url.netloc != urlparse(start_url).netloc:
+        print(f"Ignoring external URL: {url}")
         return
 
     visited.add(url)
