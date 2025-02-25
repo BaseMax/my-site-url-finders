@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, urlunparse
 import time
+import random
 
 visited = set()
 
@@ -16,6 +17,10 @@ exclude_paths = [
     "wp-includes/",
 ]
 
+exclude_extensions = [
+    ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".css", ".js", ".zip", ".tar", ".mp3", ".mp4", ".rar"
+]
+
 def clean_url(url):
     """ Remove query parameters from the URL and return the clean URL """
     parsed_url = urlparse(url)
@@ -25,9 +30,9 @@ def clean_url(url):
 def get_links(url):
     """ Fetch all links from a webpage and return a list of URLs """
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, verify=False)
         if response.status_code != 200:
-            print(f"Failed to retrieve {url}")
+            print(f"Failed to retrieve {url} (status code {response.status_code})")
             return []
 
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -45,11 +50,16 @@ def get_links(url):
         return []
 
 def should_exclude(url):
-    """ Check if a URL should be excluded based on the exclude_paths list """
+    """ Check if a URL should be excluded based on the exclude_paths list or file extensions """
     for path in exclude_paths:
         if path in url:
             print(f"Ignoring URL: {url} (matches exclusion pattern: {path})")
             return True
+
+    if any(url.endswith(ext) for ext in exclude_extensions):
+        print(f"Ignoring URL: {url} (matches exclusion file extension)")
+        return True
+
     return False
 
 def crawl_website(url):
@@ -79,6 +89,7 @@ def crawl_website(url):
         if link not in visited:
             print(f"Crawling {link}")
             crawl_website(link)
-            time.sleep(1)
+
+            time.sleep(random.uniform(1, 3))
 
 crawl_website(start_url)
