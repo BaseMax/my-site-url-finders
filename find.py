@@ -1,53 +1,63 @@
 import requests
 from bs4 import BeautifulSoup
-import threading
+from urllib.parse import urlparse, urljoin, urlunparse
 import time
 
-BASE_URL = "https://new.aloghesti.com/"
+visited = set()
 
-visited_links = set()
-lock = threading.Lock()
+start_url = "https://aloghesti.com/"
+
+def clean_url(url):
+    """ Remove query parameters from the URL and return the clean URL """
+    parsed_url = urlparse(url)
+    cleaned_url = urlunparse(parsed_url._replace(query=""))
+    return cleaned_url
 
 def get_links(url):
-    """Fetch all unique links from a given URL."""
+    """ Fetch all links from a webpage and return a list of URLs """
     try:
         response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        if response.status_code != 200:
+            print(f"Failed to retrieve {url}")
+            return []
 
-        links = set()
-        for a_tag in soup.find_all("a", href=True):
-            href = a_tag["href"]
-            if href.startswith(BASE_URL):
-                links.add(href)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        links = []
+
+        for a_tag in soup.find_all('a', href=True):
+            link = a_tag['href']
+            link = urljoin(url, link)
+            links.append(link)
 
         return links
-    except requests.RequestException:
-        return set()
 
-def save_links():
-    """Save unique links to urls.txt safely."""
-    with lock:
-        try:
-            with open("urls.txt", "w") as file:
-                file.write("\n".join(visited_links))
-        except Exception as e:
-            print(f"Error saving file: {e}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed for {url}: {e}")
+        return []
 
-def crawl(url):
-    """Recursively crawl and extract links."""
-    if url in visited_links:
+def crawl_website(url):
+    """ Recursively crawl the website and collect all unique links """
+    global visited
+    if url in visited:
         return
 
-    print(f"Crawling: {url}")
-    visited_links.add(url)
-    save_links()
+    if url.startswith(start_url + "shop/"):
+        print(f"Ignoring shop URL: {url}")
+        return
 
-    new_links = get_links(url)
-    for link in new_links:
-        crawl(link)
+    visited.add(url)
 
-if __name__ == "__main__":
-    start_url = BASE_URL
-    crawl(start_url)
-    print("Crawling completed.")
+    links = get_links(url)
+    print(f"Found {len(links)} links on {url}")
+
+    cleaned_links = {clean_url(link) for link in links}
+
+    cleaned_links.discard(url)
+
+    for link in cleaned_links:
+        if link not in visited:
+            print(f"Crawling {link}")
+            crawl_website(link)
+            time.sleep(1)
+
+crawl_website(start_url)
