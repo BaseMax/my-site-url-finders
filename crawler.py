@@ -1,10 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, urlunparse
-import time
-import random
 import warnings
 from urllib3.exceptions import InsecureRequestWarning
+from concurrent.futures import ThreadPoolExecutor
+from threading import Semaphore
 
 warnings.simplefilter('ignore', InsecureRequestWarning)
 
@@ -24,6 +24,9 @@ exclude_paths = [
 exclude_extensions = [
     ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".css", ".js", ".zip", ".tar", ".mp3", ".mp4", ".rar"
 ]
+
+MAX_WORKER = 5
+semaphore = Semaphore(MAX_WORKER)
 
 def clean_url(url):
     """ Remove query parameters from the URL and return the clean URL """
@@ -66,7 +69,7 @@ def should_exclude(url):
 
     return False
 
-def crawl_website(url):
+def crawl_website(url, executor):
     """ Recursively crawl the website and collect all unique links """
     global visited
     if url in visited:
@@ -89,11 +92,29 @@ def crawl_website(url):
 
     cleaned_links.discard(url)
 
+    futures = []
     for link in cleaned_links:
         if link not in visited:
-            print(f"Crawling {link}")
-            crawl_website(link)
+            print(f"Submitting task for {link}")
+            
+            semaphore.acquire()
+            futures.append(executor.submit(process_link, link, executor))
 
-            time.sleep(random.uniform(1, 3))
+    for future in futures:
+        future.result()
 
-crawl_website(start_url)
+    semaphore.release()
+
+def process_link(link, executor):
+    """ Process each link by crawling it """
+    try:
+        crawl_website(link, executor)
+    finally:
+        semaphore.release()
+
+def main():
+    with ThreadPoolExecutor(max_workers=MAX_WORKER) as executor:
+        crawl_website(start_url, executor)
+
+if __name__ == "__main__":
+    main()
