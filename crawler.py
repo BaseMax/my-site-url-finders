@@ -29,9 +29,9 @@ MAX_WORKER = 5
 semaphore = Semaphore(MAX_WORKER)
 
 def clean_url(url):
-    """ Remove query parameters from the URL and return the clean URL """
+    """ Remove query parameters and fragments from the URL and return the clean URL """
     parsed_url = urlparse(url)
-    cleaned_url = urlunparse(parsed_url._replace(query=""))
+    cleaned_url = urlunparse(parsed_url._replace(query="", fragment=""))
     return cleaned_url
 
 def get_links(url):
