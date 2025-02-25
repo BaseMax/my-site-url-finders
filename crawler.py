@@ -3,6 +3,10 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, urlunparse
 import time
 import random
+import warnings
+from urllib3.exceptions import InsecureRequestWarning
+
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 visited = set()
 
